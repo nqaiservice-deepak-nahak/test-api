@@ -1,21 +1,22 @@
 # =========================
-# Stage 1: Build
+# Stage 1: Builder
 # =========================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 
-# Install all dependencies required for building
+# Install all dependencies for building
 RUN npm ci
 
-# Copy source code
 COPY . .
 
 # Build NestJS application
 RUN npm run build
+
+# Remove development dependencies
+RUN npm prune --omit=dev
 
 
 # =========================
@@ -25,15 +26,12 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy only production dependencies
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install only production dependencies
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Copy only the compiled application
+# Copy only compiled application
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main.js"]
